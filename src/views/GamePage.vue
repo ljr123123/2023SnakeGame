@@ -1,5 +1,6 @@
 <template>
     <div class="game-page">
+        <Panel :if_show="!game_status" @refresh="setGame()"/>
         <TitleBar/>
         <input class="focus" @keydown="keySearch($event)" ref="main" @blur="unFocus()"/>
         <div class="game-box">
@@ -17,23 +18,30 @@
             </div>
         </div>
         <p class="score">分数:{{ score }}</p>
+        <p class="grey-block"><p>塑料数:{{ snake_body.length }}</p><p v-show="snake_body.length > 150" :style="{opacity : (snake_body.length-150) / 50, color:'red'}">DANGER!</p></p>
+        <p class="decrease-time" v-show="decrease_time != 0">减速有效时间:{{ decrease_time }}</p>
+        <p class="plus-time" v-show="plus_time != 0">分数加倍有效时间:{{ plus_time }}</p>
     </div>
 </template>
 <script setup>
-import { ref, onMounted, reactive} from "vue"
+import { ref, onMounted, computed} from "vue"
 
+let score_add = "";
+let game = "";
 let game_status = true;
 const box_child = [];
 const score = ref(0);
 const head = {row:0, col:0};
 const child_row = 30;
 const child_col = 60;
-let speed = 100;
+let speed = 0;
 let direction = "";
-const body = [];
+let snake_body = [];
 const main = ref();
 let food_and_prop = [[1, 1], [1, 1], [1, 1], [1, 1]];
-let plus_score = false;
+let plus_score = 1;
+const decrease_time = ref(0);
+const plus_time = ref(0);
 
 for(let a = 0; a < child_row; a++){
     let line = [];
@@ -61,12 +69,12 @@ function isArraySame(arr1, arr2){
 }
 
 function keySearch(event){
-    console.log(event.key);
     let key = event.key;
     if(key == "ArrowUp")direction = "up";
     else if (key == "ArrowDown")direction = "down";
     else if (key == "ArrowLeft")direction = "left";
     else if (key == "ArrowRight")direction = "right";
+
 }
 
 function unFocus(){
@@ -74,22 +82,21 @@ function unFocus(){
 }
 
 function bodyMove(){
-    
+
     let is_same = false;
 
-    body.forEach((item) => {
+    snake_body.forEach((item) => {
         if(isArraySame(item, [head.row, head.col]))is_same = true;
     })
 
     if(!is_same){
-        body.unshift([head.row, head.col]);
+        snake_body.unshift([head.row, head.col]);
         box_child[head.row][head.col].snake_body.value = true;
     }
-
-    console.log(body.length);
 }
 
 function foodAndEnzyme(){
+
     box_child[food_and_prop[0][0]][food_and_prop[0][1]].prop_one.value = false;
     box_child[food_and_prop[1][0]][food_and_prop[1][1]].prop_two.value = false;
     box_child[food_and_prop[2][0]][food_and_prop[2][1]].food_one.value = false;
@@ -102,7 +109,7 @@ function foodAndEnzyme(){
         let row = Math.floor(Math.random() * (child_row - 2)) + 1;
 
         //这行有隐藏的bug
-        if(data.includes([row, col] != -1 || [row, col] == [head.row, head.col] || body.includes([row, col] != -1)))continue;
+        if(data.includes([row, col] != -1 || [row, col] == [head.row, head.col] || snake_body.includes([row, col] != -1)))continue;
 
         if(data.length == 4)break;
         data.push([row, col]);
@@ -117,96 +124,141 @@ function foodAndEnzyme(){
 
 }
 
-function gameRun(){
+function setGame(){
 
-    let game = setInterval(() => {
+    decrease_time.value = 0;
+    plus_time.value = 0;
+    speed = 200;
+    snake_body.forEach((item) => {
+        box_child[item[0]][item[1]].snake_body.value = false;
+    })
+    
+    score.value = 0;
+    game_status = true;
+    
 
-        if(body.length > (child_col * child_row) / 2) game_status = false;
-        if(head.col == 0 || head.row == 0 || head.col == child_col - 1|| head.row == child_row - 1) game_status = false;
-        if(!game_status){
+    if(snake_body.length > 200){box_child[head.row][head.col].snake_head.value = false;}
+
+    snake_body.length = 0;
+
+    head.row = 1;
+    head.col = 1;
+
+    box_child[1][1].snake_head.value = true;
+    direction = "down";
+    main.value.focus();
+    
+    gameRun();
+    scoreAdd();
+    foodAndEnzyme();
+}
+
+function scoreAdd(){
+    if(!game_status){
+            clearInterval(score_add);
             clearInterval(game);
-            alert("You failed! 刷新网页重新开始")
-        }
+            return;
+    }
+    score_add = setInterval(() => {
+        if(plus_time.value)plus_time.value--;
+        if(decrease_time.value)decrease_time.value--;
         
-        box_child[head.row][head.col].snake_head.value = false;
-        //console.log("前: 头行：" + head.row + "头列：" + head.col);
-
-        bodyMove();
-
-        if(direction == "up"){
-            head.row = head.row - 1;
-        }
-        else if(direction == "down"){
-            head.row = head.row + 1;
-        }
-        else if(direction == "left"){
-            head.col = head.col - 1;
-        }
-        else if(direction == "right"){
-            head.col = head.col + 1;
-        }
-
-        box_child[head.row][head.col].snake_head.value = true;
-        //console.log("后: 头行：" + head.row + "头列：" + head.col);
+        score.value = score.value + plus_score;
+        speed -= 2;
         
+        clearInterval(game);
+        clearInterval(score_add);
+        
+        gameRun();
+        scoreAdd();
+    }, 1000);
+}
 
-        for(let a = 0; a < 4; a++){
-            if(food_and_prop[0][0] == head.row && food_and_prop[0][1] == head.col){
-                //道具1:时间减慢10s
-                //绿色
-                foodAndEnzyme();
-                clearInterval(game);
-                speed = speed * 5;
-                game = gameRun();
-                
-                setTimeout(() => {
+function gameRun(){
+        game = setInterval(() => {
+          
+            if(snake_body.length > 200) game_status = false;
+            if(head.col == 0 || head.row == 0 || head.col == child_col - 1|| head.row == child_row - 1) game_status = false;
+            
+            
+            box_child[head.row][head.col].snake_head.value = false;
+
+            bodyMove();
+
+            if(direction == "up"){
+                head.row = head.row - 1;
+            }
+            else if(direction == "down"){
+                head.row = head.row + 1;
+            }
+            else if(direction == "left"){
+                head.col = head.col - 1;
+            }
+            else if(direction == "right"){
+                head.col = head.col + 1;
+            }
+
+            box_child[head.row][head.col].snake_head.value = true;
+            
+
+            for(let a = 0; a < 4; a++){
+                if(food_and_prop[0][0] == head.row && food_and_prop[0][1] == head.col){
+                    //道具1:时间减慢10s
+                    //绿色
+                    foodAndEnzyme();
                     clearInterval(game);
-                    speed = speed / 5;
-                    gameRun();
-                }, 10000);
-            }
-            else if(food_and_prop[1][0] == head.row && food_and_prop[1][1] == head.col){
-                //道具2:减少一半的塑料
-                //紫色
-                foodAndEnzyme();
-                let moveChild = body.splice(0, body.length % 2 == 0 ? body.length / 2 : (body.length + 1) / 2);
-                moveChild.forEach((item) => {
-                    box_child[item[0]][item[1]].snake_body.value = false;
-                })
-            }
-            else if(food_and_prop[2][0] == head.row && food_and_prop[2][1] == head.col){
-                //食物:吃了得一分
-                //蓝色
-                foodAndEnzyme();
-                if(plus_score)score.value++;
-                score.value++;
-            }
-            else if(food_and_prop[3][0] == head.row && food_and_prop[3][1] == head.col){
-                //食物道具:10s吃到食物加2分
-                //黄色
-                plus_score = true;
-                foodAndEnzyme();
-                setTimeout(() => plus_score = false, 10000);
-                console.log("得分加成！");
-            }
-        }
-        
+                    clearInterval(score_add);
+                    decrease_time.value = 10;
+                    speed = speed * 2;
+                    game = gameRun();
+                    scoreAdd()
+                    
+                    setTimeout(() => {
 
+                        clearInterval(game);
+                        clearInterval(score_add);
+
+                        speed = (speed + 50) / 2;
+
+                        if(game_status){
+                            gameRun();
+                            scoreAdd();
+                        }
+                    }, 10000);
+                }
+                else if(food_and_prop[1][0] == head.row && food_and_prop[1][1] == head.col){
+                    //道具2:减少一半的塑料
+                    //紫色
+                    foodAndEnzyme();
+                    let moveChild = snake_body.splice(snake_body.length % 2 == 0 ? snake_body.length / 2 : (snake_body.length + 1) / 2);
+                    moveChild.forEach((item) => {
+                        box_child[item[0]][item[1]].snake_body.value = false;
+                    })
+                }
+                else if(food_and_prop[2][0] == head.row && food_and_prop[2][1] == head.col){
+                    //食物:吃了得一分
+                    //蓝色
+                    foodAndEnzyme();
+                    if(plus_score)score.value++;
+                    score.value += 20;
+                }
+                else if(food_and_prop[3][0] == head.row && food_and_prop[3][1] == head.col){
+                    //食物道具:10s吃到食物加2分
+                    //黄色
+                    plus_time.value = 10;
+                    plus_score = plus_score * 2;
+                    foodAndEnzyme();
+                    setTimeout(() => plus_score = plus_score / 2, 10000);
+                }
+            }
     }, speed);
     return game;
 }
 
-
-
-onMounted(()=>{
-    head.row = 1;
-    head.col = 1;
-    box_child[head.row][head.col].snake_head.value = true;
-    direction = "down";
-    main.value.focus();
-    gameRun();
-    foodAndEnzyme()
+onMounted(() => {
+    setGame();
 })
+
 </script>
 <style scoped>
 .game-page{
@@ -232,5 +284,12 @@ onMounted(()=>{
     bottom: 0;
     left:0;
     opacity: 0;
+}
+.grey-block{
+    display:flex;
+    flex-direction: row;
+    width:15%;
+    justify-content: center;
+    align-items: center;
 }
 </style>

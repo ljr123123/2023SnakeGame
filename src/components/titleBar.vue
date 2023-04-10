@@ -1,6 +1,6 @@
 <template>
     <div class="title-bar">
-        <img src="../assets/more.svg" class="more"/>
+        <img src="../assets/more.svg" class="more" @click="$emit('more')"/>
     </div>
 </template>
 <script setup>

@@ -24,24 +24,31 @@ const props = defineProps(["is_head", "is_body", "is_prop_one", "is_prop_two", "
     font-size: 1px;
 }
 .snake-head{
-    background-image: linear-gradient(to bottom right, red , yellow);;
+    background-image: url("../assets/snake.svg");
+    background-size: 100% 100%;
 }
 .snake-body{
     background:#00000050;
 }
 .block{
-    background:#000000;
+    background-image: url("../assets/block.svg");
+    background-size: 100% 100%;
+    background-color: #000000;
 }
 .prop-1{
-    background: greenyellow;
+    background-image: url("../assets/clock.svg");
+    background-size: 100% 100%;
 }
 .prop-2{
-    background:purple;
+    background-image: url("../assets/clear.svg");
+    background-size: 100% 100%;
 }
 .food-one{
-    background:blue;
+    background-image: url("../assets/star.svg");
+    background-size: 100% 100%;
 }
 .food-two{
-    background: yellow;
+    background-image: url("../assets/plus.svg");
+    background-size: 100% 100%;
 }
 </style>
